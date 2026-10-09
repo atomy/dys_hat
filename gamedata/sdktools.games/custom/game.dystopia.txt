@@ -1,0 +1,82 @@
+/**
+ * Corrected SDKTools offsets for Dystopia 1.5.8 (server.dll / server_srv.so of 2026), shipped with dys_hats.
+ * SourceMod's own sdktools.games/game.dystopia.txt is from an old Dystopia build: e.g. its AcceptInput and Teleport
+ * offsets now point at other functions, so AcceptEntityInput / TeleportEntity silently did the wrong thing.
+ * Linux values: vtable slots of CDYSPlayer read from the server_srv.so symbols. Windows values: the same slots in
+ * server.dll (RTTI vtables; one virtual destructor less, MSVC orders the CommitSuicide overloads the other way round).
+ * SourceMod reads files in this "custom" folder after its own, so these win. SDKHooks' Dystopia offsets are still right.
+ */
+"Games"
+{
+	"!Dystopia"
+	{
+		"Offsets"
+		{
+			"GiveNamedItem"
+			{
+				"windows"	"403"
+				"linux"		"404"
+			}
+			"RemovePlayerItem"
+			{
+				"windows"	"273"
+				"linux"		"274"
+			}
+			"Weapon_GetSlot"
+			{
+				"windows"	"271"
+				"linux"		"272"
+			}
+			"Ignite"
+			{
+				"windows"	"212"
+				"linux"		"213"
+			}
+			"Extinguish"
+			{
+				"windows"	"216"
+				"linux"		"217"
+			}
+			"Teleport"
+			{
+				"windows"	"108"
+				"linux"		"109"
+			}
+			"CommitSuicide"
+			{
+				"windows"	"442"
+				"linux"		"442"
+			}
+			"GetVelocity"
+			{
+				"windows"	"140"
+				"linux"		"141"
+			}
+			"EyeAngles"
+			{
+				"windows"	"131"
+				"linux"		"132"
+			}
+			"AcceptInput"
+			{
+				"windows"	"36"
+				"linux"		"37"
+			}
+			"SetEntityModel"
+			{
+				"windows"	"24"
+				"linux"		"25"
+			}
+			"WeaponEquip"
+			{
+				"windows"	"264"
+				"linux"		"265"
+			}
+			"Activate"
+			{
+				"windows"	"33"
+				"linux"		"34"
+			}
+		}
+	}
+}
