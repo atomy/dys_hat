@@ -1,5 +1,12 @@
 # Dystopia Hats (`dys_hats`)
 
+<p align="center">
+  <img src="screenshots/hat_cone.webp" height="280" alt="Traffic cone hat">
+  <img src="screenshots/hat_melon.webp" height="280" alt="Watermelon hat">
+  <img src="screenshots/plush_heavy.webp" height="280" alt="Plush backpack, side view">
+  <img src="screenshots/plush_light.png" height="280" alt="Plush backpack, back view">
+</p>
+
 A SourceMod plugin that gives [Dystopia](https://store.steampowered.com/app/17580/Dystopia/) players TF2-style hats
 and a plush backpack. Hats are opt-in: nobody wears one until they pick it with `!hat`.
 
