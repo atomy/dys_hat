@@ -16,17 +16,9 @@
  *   !hat tf2         how to see TF2 hats (players who set "setinfo dys_tf2hats 1" get the TF2 models,
  *                    everyone else sees an HL2 stand-in; the TF2 list is configs/dys_hats_tf2.cfg)
  *
- *   !skin            player model menu (opt-in, remembered): !skin <id> | off | list
- *   !pink            switch the Pink Light Punk on / off (only while you play Punk Light)
- *
  * Hats are hidden while the wearer is cloaked (stealth implant) and while jacked into
  * cyberspace, you don't see your own hat in first person, and a hat falls off when its
  * wearer dies.
- *
- * Player skins (the "skins" block of the config) are the one thing players download: the
- * server puts the model and its materials in the download table. A skin replaces only its
- * "base" model (models/player/light_punk.mdl for the pink one); other classes and the
- * cyberspace avatar are never touched.
  *
  * Copyright (C) 2026 atomy - https://github.com/atomy/dys_hat
  * This program is free software: you can redistribute it and/or modify it under the terms of
@@ -44,10 +36,9 @@
 #include <clientprefs>
 #define REQUIRE_EXTENSIONS
 
-#define PLUGIN_VERSION "1.4.0"
+#define PLUGIN_VERSION "1.3.0"
 #define MAX_PLUSH_MODELS 16
 #define MAX_HATS 64
-#define MAX_SKINS 16
 #define MAX_EDICTS 2048
 #define EF_NODRAW 0x020
 #define OBS_MODE_IN_EYE 4
@@ -62,7 +53,7 @@ public Plugin myinfo =
 {
 	name = "Dystopia Hats",
 	author = "atomy",
-	description = "TF2-style hats: !hat picks a prop to wear on your head, !skin a player model",
+	description = "TF2-style hats: !hat picks a prop to wear on your head",
 	version = PLUGIN_VERSION,
 	url = "https://github.com/atomy/dys_hat"
 };
@@ -77,13 +68,9 @@ ConVar g_cvDebug;
 ConVar g_cvPlush;
 ConVar g_cvPlushBots;
 ConVar g_cvTf2Fallback;
-ConVar g_cvSkins;
-ConVar g_cvSkinDefault;
-ConVar g_cvSkinBots;
 
 Handle g_Cookie = null;
 Handle g_PlushCookie = null;
-Handle g_SkinCookie = null;
 bool g_Late;
 
 // hat definitions (configs/dys_hats.cfg, or the built-in list below)
@@ -109,18 +96,6 @@ float g_PlushPos[MAX_PLUSH_MODELS][3];
 float g_PlushAng[MAX_PLUSH_MODELS][3];
 int g_PlushCount;
 
-// player skins (the "skins" block of configs/dys_hats.cfg, or the built-in pink one); only skins whose model exists
-char g_SkinId[MAX_SKINS][32];
-char g_SkinName[MAX_SKINS][64];
-char g_SkinClass[MAX_SKINS][32];                         // shown to players, e.g. "Punk Light"
-char g_SkinModel[MAX_SKINS][PLATFORM_MAX_PATH];
-char g_SkinBase[MAX_SKINS][PLATFORM_MAX_PATH];           // the stock model it replaces (and only that one)
-char g_SkinMaterials[MAX_SKINS][PLATFORM_MAX_PATH];      // folder whose files go to the download table
-int g_SkinCount;
-StringMap g_LiveModels;   // skin models that were in the download table when this map started (lowercase path)
-bool g_SkinsBlocked;      // late load with players in the game: they have no skin files until the next map
-char g_SkinExt[][] = { ".vvd", ".dx90.vtx", ".dx80.vtx", ".sw.vtx", ".phy" };
-
 // per player
 int g_Choice[MAXPLAYERS + 1];                           // CHOICE_DEFAULT, CHOICE_NONE or a hat index
 int g_BotHat[MAXPLAYERS + 1];                           // random pick of a bot (sm_hats_bots 2)
@@ -137,9 +112,6 @@ char g_PlushOnModel[MAXPLAYERS + 1][PLATFORM_MAX_PATH];
 
 bool g_ViewerTf2[MAXPLAYERS + 1];                       // userinfo dys_tf2hats 1: this player has the TF2 hat files
 int g_FallbackRef[MAXPLAYERS + 1];                      // the stand-in entity of a worn TF2 hat
-
-char g_SkinChoice[MAXPLAYERS + 1][32];                  // "" = sm_hats_skin_default, "none" or a skin id (also unknown ones)
-char g_SkinForce[MAXPLAYERS + 1][32];                   // sm_skin_force: "" = no override, "none" or a skin id
 
 int g_EntOwner[MAX_EDICTS + 1];                         // hat entity -> wearer
 int g_EntKind[MAX_EDICTS + 1];                          // KIND_TF2: only to TF2 viewers, KIND_FALLBACK: only to the others
@@ -166,10 +138,6 @@ public void OnPluginStart()
 	g_cvPlush = CreateConVar("sm_hats_plush", "1", "1 = players can wear the plush backpack with !plush", _, true, 0.0, true, 1.0);
 	g_cvPlushBots = CreateConVar("sm_hats_plush_bots", "0", "1 = bots wear the plush backpack", _, true, 0.0, true, 1.0);
 	g_cvTf2Fallback = CreateConVar("sm_hats_tf2_fallback", "cone", "HL2 hat id shown instead of a TF2 hat to players without the TF2 files (TF2 hats without their own \"fallback\")");
-	g_cvSkins = CreateConVar("sm_hats_skins", "1", "1 = players may use player skins (!skin, !pink); the skin files go to the download table", _, true, 0.0, true, 1.0);
-	g_cvSkinDefault = CreateConVar("sm_hats_skin_default", "none", "Skin id for players who never picked one (\"none\" = the stock models)");
-	g_cvSkinBots = CreateConVar("sm_hats_skins_bots", "0", "Bots: 0 = never a skin, 1 = the default skin (sm_hats_skin_default)", _, true, 0.0, true, 1.0);
-	g_LiveModels = new StringMap();
 
 	RegConsoleCmd("sm_hat", Cmd_Hat, "!hat: hat menu; !hat <id> | off | next | list | show | hide | tf2");
 	RegConsoleCmd("sm_hats", Cmd_Hat, "Same as sm_hat");
@@ -179,9 +147,6 @@ public void OnPluginStart()
 	RegAdminCmd("sm_hats_tune", Cmd_Tune, ADMFLAG_CONFIG, "sm_hats_tune <id> pos <fwd> <left> <up> | ang <pitch> <yaw> <roll> | scale <s>: adjust a hat live");
 	RegAdminCmd("sm_hats_dump", Cmd_Dump, ADMFLAG_CONFIG, "Print where every worn hat sits (debug)");
 	RegAdminCmd("sm_hats_tf2view", Cmd_Tf2View, ADMFLAG_CONFIG, "sm_hats_tf2view <client index> <0|1>: treat a client as having the TF2 hat files or not (test)");
-	RegConsoleCmd("sm_skin", Cmd_Skin, "!skin: player model menu; !skin <id> | off | list");
-	RegConsoleCmd("sm_pink", Cmd_Pink, "!pink: switch the Pink Light Punk skin on / off");
-	RegAdminCmd("sm_skin_force", Cmd_SkinForce, ADMFLAG_CONFIG, "sm_skin_force <target> <id|off|reset>: set the skin of any player, bots too (test what others see)");
 
 	HookEventEx("player_spawn", Event_Spawn);
 	HookEventEx("player_death", Event_Death);
@@ -191,7 +156,6 @@ public void OnPluginStart()
 	{
 		g_Cookie = RegClientCookie("dys_hats", "Dystopia Hats: chosen hat", CookieAccess_Protected);
 		g_PlushCookie = RegClientCookie("dys_hats_plush", "Dystopia Hats: plush backpack on", CookieAccess_Protected);
-		g_SkinCookie = RegClientCookie("dys_hats_skin", "Dystopia Hats: chosen player skin", CookieAccess_Protected);
 	}
 
 	for (int i = 1; i <= MaxClients; i++)
@@ -205,39 +169,19 @@ public void OnPluginStart()
 		PrecacheHats();
 		for (int i = 1; i <= MaxClients; i++)
 		{
-			if (!IsClientInGame(i))
-				continue;
-			if (g_Cookie != null && AreClientCookiesCached(i))
+			if (IsClientInGame(i) && g_Cookie != null && AreClientCookiesCached(i))
 				OnClientCookiesCached(i);
-			if (!IsFakeClient(i))
-				g_SkinsBlocked = true;
 		}
-		if (g_SkinsBlocked && g_SkinCount > 0)
-			LogMessage("Loaded during a map with players in the game: player skins start at the next map (they need the download first)");
 	}
 }
 
 public void OnPluginEnd()
 {
-	char model[PLATFORM_MAX_PATH];
 	for (int i = 1; i <= MaxClients; i++)
 	{
 		RemoveHat(i, "unload");
 		RemovePlush(i, "unload");
-		// nobody keeps a skin the plugin no longer manages
-		if (IsClientInGame(i) && IsPlayerAlive(i))
-		{
-			GetClientModel(i, model, sizeof(model));
-			int s = SkinOfModel(model);
-			if (s >= 0)
-				SetPlayerModel(i, g_SkinBase[s], "unload");
-		}
 	}
-}
-
-public void OnMapEnd()
-{
-	g_SkinsBlocked = false;  // everyone reconnects for the next map and downloads the skins then
 }
 
 public void OnMapStart()
@@ -258,7 +202,6 @@ public void OnMapStart()
 		g_EntKind[e] = KIND_ANY;
 	}
 	PrecacheHats();
-	RegisterSkins(true);
 }
 
 public void OnConfigsExecuted()
@@ -266,15 +209,6 @@ public void OnConfigsExecuted()
 	// the settings in configs/dys_hats.cfg win over server.cfg (it runs before SourceMod loads plugins)
 	LoadConfig();
 	PrecacheHats();
-	RegisterSkins(true);
-	// server.cfg has run by now
-	ConVar allow = FindConVar("sv_allowdownload");
-	ConVar url = FindConVar("sv_downloadurl");
-	char dl[8];
-	if (url != null)
-		url.GetString(dl, sizeof(dl));
-	if (g_cvSkins.BoolValue && g_SkinCount > 0 && allow != null && !allow.BoolValue && dl[0] == '\0')
-		LogError("sv_allowdownload is 0 and there is no sv_downloadurl: players can't download the player skins (they would see an ERROR model)");
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -416,8 +350,6 @@ void AddBuiltinPlush()
 {
 	// katana models tuned in game: the rifle stance twists the upper body ~45 deg against the bind pose
 	AddPlushModel("models/player/light_punk.mdl", "katana", -24.0, 6.0, -4.0, -40.0, 70.0, 110.0);
-	// the pink skin's back is ~2.5 u closer to the spine than light_punk's: light_punk moved 2.5 u towards the body
-	AddPlushModel("models/player/light_punk_pink.mdl", "katana", -25.0, 8.3, -3.7, -40.0, 70.0, 110.0);
 	AddPlushModel("models/player/light_corp.mdl", "katana", -23.4, 5.1, -4.2, -40.0, 70.0, 110.0);
 	AddPlushModel("models/player/medium_punk.mdl", "katana", -23.4, 4.4, -4.2, -40.0, 70.0, 110.0);
 	AddPlushModel("models/player/medium_corp.mdl", "katana", -16.1, -2.2, -6.8, -41.0, 72.0, 111.0);
@@ -443,90 +375,6 @@ int PlushSlotFor(const char[] model)
 	return i >= 0 ? i : FindPlushEntry("default");
 }
 
-int FindSkin(const char[] id)
-{
-	for (int i = 0; i < g_SkinCount; i++)
-	{
-		if (StrEqual(g_SkinId[i], id, false))
-			return i;
-	}
-	return -1;
-}
-
-// quiet: a missing model is no error (the built-in skin on a server without the skin files)
-void AddSkin(const char[] id, const char[] name, const char[] cls, const char[] model, const char[] base,
-	const char[] materials, bool quiet)
-{
-	if (g_SkinCount >= MAX_SKINS)
-		return;
-	if (StrEqual(id, "none", false) || StrEqual(id, "off", false) || StrEqual(id, "default", false) || StrEqual(id, "list", false))
-	{
-		LogError("skin id '%s' is reserved, skipped", id);
-		return;
-	}
-	if (FindSkin(id) >= 0)
-	{
-		LogError("skin '%s' is defined twice, the second one is skipped", id);
-		return;
-	}
-	if (model[0] == '\0' || base[0] == '\0' || SameModel(model, base))
-	{
-		LogError("skin '%s' needs a \"model\" and a different \"base\" model, skipped", id);
-		return;
-	}
-	if (!FileExists(model, true))
-	{
-		if (!quiet)
-			LogError("skin '%s': model %s not found (copy the content/ folder of the dys_hats repo into dystopia/), skipped", id, model);
-		return;
-	}
-	int i = g_SkinCount++;
-	strcopy(g_SkinId[i], sizeof(g_SkinId[]), id);
-	strcopy(g_SkinName[i], sizeof(g_SkinName[]), name[0] != '\0' ? name : id);
-	strcopy(g_SkinClass[i], sizeof(g_SkinClass[]), cls);
-	strcopy(g_SkinModel[i], sizeof(g_SkinModel[]), model);
-	strcopy(g_SkinBase[i], sizeof(g_SkinBase[]), base);
-	strcopy(g_SkinMaterials[i], sizeof(g_SkinMaterials[]), materials);
-	ReplaceString(g_SkinModel[i], sizeof(g_SkinModel[]), "\\", "/");
-	ReplaceString(g_SkinBase[i], sizeof(g_SkinBase[]), "\\", "/");
-	ReplaceString(g_SkinMaterials[i], sizeof(g_SkinMaterials[]), "\\", "/");
-	int len = strlen(g_SkinMaterials[i]);
-	while (len > 0 && g_SkinMaterials[i][len - 1] == '/')
-		g_SkinMaterials[i][--len] = '\0';
-}
-
-// The same as the "skins" block of configs/dys_hats.cfg, used when the config has none.
-void AddBuiltinSkins()
-{
-	AddSkin("pink", "Pink Light Punk", "Punk Light", "models/player/light_punk_pink.mdl", "models/player/light_punk.mdl",
-		"materials/models/player/light_punk_pink", true);
-}
-
-// the "skins" block of the config (kv at its root); false = there is none
-bool ReadSkins(KeyValues kv)
-{
-	if (!kv.JumpToKey("skins"))
-		return false;
-	bool quiet = !g_cvSkins.BoolValue;  // skins switched off: a missing model is not worth an error
-	if (kv.GotoFirstSubKey())
-	{
-		char id[32], name[64], cls[32], model[PLATFORM_MAX_PATH], base[PLATFORM_MAX_PATH], materials[PLATFORM_MAX_PATH];
-		do
-		{
-			kv.GetSectionName(id, sizeof(id));
-			kv.GetString("name", name, sizeof(name));
-			kv.GetString("class", cls, sizeof(cls));
-			kv.GetString("model", model, sizeof(model));
-			kv.GetString("base", base, sizeof(base));
-			kv.GetString("materials", materials, sizeof(materials));
-			AddSkin(id, name, cls, model, base, materials, quiet);
-		} while (kv.GotoNextKey());
-		kv.GoBack();
-	}
-	kv.GoBack();
-	return true;
-}
-
 void FinishPlushConfig()
 {
 	if (g_PlushCount == 0)
@@ -542,7 +390,6 @@ void LoadConfig()
 {
 	g_HatCount = 0;
 	g_PlushCount = 0;
-	g_SkinCount = 0;
 	strcopy(g_PlushModel, sizeof(g_PlushModel), "models/twincannon/plush_heavy.mdl");
 	g_PlushScale = 1.2;
 	char path[PLATFORM_MAX_PATH];
@@ -552,7 +399,6 @@ void LoadConfig()
 	{
 		delete kv;
 		AddBuiltinHats();
-		AddBuiltinSkins();
 		FinishPlushConfig();
 		LogMessage("configs/dys_hats.cfg not found, using the %d built-in hats", g_HatCount);
 		return;
@@ -583,9 +429,6 @@ void LoadConfig()
 	}
 
 	ReadHats(kv);
-	kv.Rewind();
-	if (!ReadSkins(kv))
-		AddBuiltinSkins();
 
 	kv.Rewind();
 	if (kv.JumpToKey("plush"))
@@ -618,8 +461,8 @@ void LoadConfig()
 		LogError("configs/dys_hats.cfg has no usable hats, using the %d built-in hats", g_HatCount);
 	}
 	else
-		LogMessage("Read %d hat(s), %d skin(s) and %d setting(s) from configs/dys_hats.cfg, %d TF2 hat(s) from configs/dys_hats_tf2.cfg",
-			g_HatCount - tf2, g_SkinCount, settings, tf2);
+		LogMessage("Read %d hat(s) and %d setting(s) from configs/dys_hats.cfg, %d TF2 hat(s) from configs/dys_hats_tf2.cfg",
+			g_HatCount - tf2, settings, tf2);
 
 	// a reload can shift the indices: everybody re-equips
 	for (int i = 1; i <= MaxClients; i++)
@@ -632,118 +475,6 @@ void PrecacheHats()
 		PrecacheModel(g_HatModel[i], true);
 	if (g_PlushOk)
 		PrecacheModel(g_PlushModel, true);
-}
-
-// model paths compared the way the engine does: case-insensitive, \ = /
-bool SameModel(const char[] a, const char[] b)
-{
-	for (int i = 0; ; i++)
-	{
-		int ca = CharToLower(a[i]);
-		int cb = CharToLower(b[i]);
-		if (ca == '\\')
-			ca = '/';
-		if (cb == '\\')
-			cb = '/';
-		if (ca != cb)
-			return false;
-		if (ca == '\0')
-			return true;
-	}
-}
-
-void ModelKey(const char[] model, char[] key, int maxlen)
-{
-	strcopy(key, maxlen, model);
-	for (int i = 0; key[i] != '\0'; i++)
-		key[i] = (key[i] == '\\') ? '/' : CharToLower(key[i]);
-}
-
-// the skin whose model this is, or -1
-int SkinOfModel(const char[] model)
-{
-	for (int i = 0; i < g_SkinCount; i++)
-	{
-		if (SameModel(g_SkinModel[i], model))
-			return i;
-	}
-	return -1;
-}
-
-// in the download table since this map started: everybody in the game has the files
-bool SkinLive(int idx)
-{
-	char key[PLATFORM_MAX_PATH];
-	bool live;
-	ModelKey(g_SkinModel[idx], key, sizeof(key));
-	return g_LiveModels.GetValue(key, live) && live;
-}
-
-// Download table + precache for every skin: at map start (OnMapStart, again after the config in OnConfigsExecuted)
-// and after sm_hats_reload. Only a map-start registration makes a skin live: players who are in the game already when a
-// skin shows up mid-map (late load, reload, sm_hats_skins 0 -> 1) never downloaded it and would see an ERROR model.
-void RegisterSkins(bool mapStart)
-{
-	if (mapStart)
-		g_LiveModels.Clear();
-	if (!g_cvSkins.BoolValue || g_SkinCount == 0)
-		return;
-	char key[PLATFORM_MAX_PATH];
-	for (int i = 0; i < g_SkinCount; i++)
-	{
-		int files = AddSkinDownloads(i);
-		PrecacheModel(g_SkinModel[i], true);
-		if (mapStart && !g_SkinsBlocked)
-		{
-			ModelKey(g_SkinModel[i], key, sizeof(key));
-			g_LiveModels.SetValue(key, true);
-		}
-		if (g_cvDebug.BoolValue)
-			LogMessage("skin '%s': %d file(s) in the download table, %s", g_SkinId[i], files, SkinLive(i) ? "live" : "from the next map on");
-	}
-}
-
-// the model, its companion files and every file of its materials folder; returns the number of files
-int AddSkinDownloads(int idx)
-{
-	char base[PLATFORM_MAX_PATH], path[PLATFORM_MAX_PATH];
-	AddFileToDownloadsTable(g_SkinModel[idx]);
-	int n = 1;
-	strcopy(base, sizeof(base), g_SkinModel[idx]);
-	int len = strlen(base);
-	if (len > 4 && StrEqual(base[len - 4], ".mdl", false))
-	{
-		base[len - 4] = '\0';
-		for (int k = 0; k < sizeof(g_SkinExt); k++)
-		{
-			Format(path, sizeof(path), "%s%s", base, g_SkinExt[k]);
-			if (FileExists(path, true))
-			{
-				AddFileToDownloadsTable(path);
-				n++;
-			}
-		}
-	}
-	if (g_SkinMaterials[idx][0] == '\0')
-		return n;
-	DirectoryListing dir = OpenDirectory(g_SkinMaterials[idx], true);
-	if (dir == null)
-	{
-		LogError("skin '%s': materials folder %s not found", g_SkinId[idx], g_SkinMaterials[idx]);
-		return n;
-	}
-	char name[PLATFORM_MAX_PATH];
-	FileType type;
-	while (dir.GetNext(name, sizeof(name), type))
-	{
-		if (type != FileType_File)
-			continue;
-		Format(path, sizeof(path), "%s/%s", g_SkinMaterials[idx], name);
-		AddFileToDownloadsTable(path);
-		n++;
-	}
-	delete dir;
-	return n;
 }
 
 // the hat shown instead of TF2 hat idx to players without the TF2 files (-1 = nothing)
@@ -804,8 +535,6 @@ void ResetClient(int client)
 	g_PlushOnModel[client][0] = '\0';
 	g_ViewerTf2[client] = false;
 	g_FallbackRef[client] = INVALID_ENT_REFERENCE;
-	g_SkinChoice[client][0] = '\0';
-	g_SkinForce[client][0] = '\0';
 }
 
 public void OnClientConnected(int client)
@@ -839,15 +568,6 @@ public void OnClientCookiesCached(int client)
 		GetClientCookie(client, g_PlushCookie, id, sizeof(id));
 		g_PlushOn[client] = StrEqual(id, "1");
 	}
-	if (g_SkinCookie != null)
-	{
-		// "none" or a skin id; an id this server doesn't have is kept (it may come back) and means no skin meanwhile
-		GetClientCookie(client, g_SkinCookie, id, sizeof(id));
-		TrimString(id);
-		if (StrEqual(id, "default", false))
-			id[0] = '\0';
-		strcopy(g_SkinChoice[client], sizeof(g_SkinChoice[]), id);
-	}
 }
 
 int DefaultHat()
@@ -875,75 +595,6 @@ int WantedHat(int client)
 	return g_Choice[client] < g_HatCount ? g_Choice[client] : -1;
 }
 
-// the skin this player should have (-1 = the stock model): sm_skin_force, else bots per sm_hats_skins_bots, else the
-// player's !skin choice ("" = sm_hats_skin_default)
-int WantedSkin(int client)
-{
-	if (!g_cvSkins.BoolValue)
-		return -1;
-	char id[32];
-	if (g_SkinForce[client][0] != '\0')
-		strcopy(id, sizeof(id), g_SkinForce[client]);
-	else if (IsFakeClient(client))
-	{
-		if (IsClientSourceTV(client) || IsClientReplay(client) || !g_cvSkinBots.BoolValue)
-			return -1;
-		g_cvSkinDefault.GetString(id, sizeof(id));
-	}
-	else if (g_SkinChoice[client][0] == '\0')
-		g_cvSkinDefault.GetString(id, sizeof(id));
-	else
-		strcopy(id, sizeof(id), g_SkinChoice[client]);
-	return FindSkin(id);  // "none" or an unknown id: -1
-}
-
-// SetEntityModel that leaves m_nSkin alone (the game drives it: thermal, headshot, stealth)
-bool SetPlayerModel(int client, const char[] model, const char[] why)
-{
-	if (!IsModelPrecached(model))
-		return false;
-	int skin = GetEntProp(client, Prop_Send, "m_nSkin");
-	SetEntityModel(client, model);
-	if (GetEntProp(client, Prop_Send, "m_nSkin") != skin)
-		SetEntProp(client, Prop_Send, "m_nSkin", skin);
-	if (g_cvDebug.BoolValue)
-		LogMessage("%N: player model %s (%s)", client, model, why);
-	return true;
-}
-
-// Puts a player who wants a skin into it while their model is the skin's base model, and back into the base model
-// when they don't want it any more. Any other model (other classes, the cyberspace avatar) is never touched.
-// Dystopia sets the class model again at every spawn, so this runs after each spawn and every tick.
-// Returns true if the model changed.
-bool TickSkin(int client, const char[] model)
-{
-	int want = WantedSkin(client);
-	if (want >= 0 && !SkinLive(want))
-		want = -1;
-	int wearing = SkinOfModel(model);
-	if (wearing == want)
-		return false;
-	if (wearing >= 0)
-	{
-		if (want >= 0 && SameModel(g_SkinBase[wearing], g_SkinBase[want]))
-			return SetPlayerModel(client, g_SkinModel[want], g_SkinId[want]);
-		return SetPlayerModel(client, g_SkinBase[wearing], "skin off");
-	}
-	if (SameModel(model, g_SkinBase[want]))
-		return SetPlayerModel(client, g_SkinModel[want], g_SkinId[want]);
-	return false;
-}
-
-public void Frame_SpawnSkin(int userid)
-{
-	int client = GetClientOfUserId(userid);
-	if (client <= 0 || !IsClientInGame(client) || !IsPlayerAlive(client) || GetClientTeam(client) < 2 || Camouflage(client) > 0)
-		return;
-	char model[PLATFORM_MAX_PATH];
-	GetClientModel(client, model, sizeof(model));
-	TickSkin(client, model);
-}
-
 bool InCyberspace(int client, const char[] model)
 {
 	if (StrContains(model, "player/cyber", false) != -1)
@@ -966,9 +617,6 @@ public void Event_Spawn(Event event, const char[] name, bool dontBroadcast)
 		g_BotHat[client] = GetRandomInt(0, g_HatCount - 1);
 	g_HatWorn[client] = -1;  // the class model may have changed: re-attach on the next tick
 	g_PlushOnModel[client][0] = '\0';
-	// the spawn sets the stock class model: put the skin back on one frame later (the tick catches a later reset)
-	if (g_SkinCount > 0)
-		RequestFrame(Frame_SpawnSkin, GetClientUserId(client));
 }
 
 public void Event_Death(Event event, const char[] name, bool dontBroadcast)
@@ -1009,12 +657,9 @@ public Action Timer_Tick(Handle timer)
 		model[0] = '\0';
 		if (playing)
 			GetClientModel(client, model, sizeof(model));
+		bool cyber = playing && InCyberspace(client, model);
 		bool settled = now - g_SpawnTime[client] >= 0.2;  // let the spawn set the class model first
 		bool hide = playing && Camouflage(client) > 0;     // nothing may give a cloaked player away
-		// the player skin first (not while cloaked), so hats and plush attach to the model the player really has
-		if (playing && settled && !hide && g_SkinCount > 0 && TickSkin(client, model))
-			GetClientModel(client, model, sizeof(model));
-		bool cyber = playing && InCyberspace(client, model);
 		TickHat(client, enabled ? WantedHat(client) : -1, playing, cyber, settled, hide, model);
 		TickPlush(client, enabled && WantsPlush(client), playing, cyber, settled, hide, model);
 	}
@@ -1525,187 +1170,6 @@ public Action Cmd_Plush(int client, int args)
 	return Plugin_Handled;
 }
 
-// "Pink Light Punk (Punk Light)"
-void SkinLabel(int idx, char[] buf, int maxlen)
-{
-	if (g_SkinClass[idx][0] != '\0')
-		Format(buf, maxlen, "%s (%s)", g_SkinName[idx], g_SkinClass[idx]);
-	else
-		strcopy(buf, maxlen, g_SkinName[idx]);
-}
-
-void ShowSkinMenu(int client)
-{
-	Menu menu = new Menu(Menu_Skin);
-	int cur = WantedSkin(client);
-	menu.SetTitle("Player model (now: %s)", cur >= 0 ? g_SkinName[cur] : "stock");
-	menu.AddItem("none", "Stock model", cur < 0 ? ITEMDRAW_DISABLED : ITEMDRAW_DEFAULT);
-	char label[128];
-	for (int i = 0; i < g_SkinCount; i++)
-	{
-		SkinLabel(i, label, sizeof(label));
-		menu.AddItem(g_SkinId[i], label, i == cur ? ITEMDRAW_DISABLED : ITEMDRAW_DEFAULT);
-	}
-	menu.Display(client, MENU_TIME_FOREVER);
-}
-
-public int Menu_Skin(Menu menu, MenuAction action, int client, int item)
-{
-	if (action == MenuAction_Select)
-	{
-		char id[32];
-		menu.GetItem(item, id, sizeof(id));
-		SetSkinChoice(client, id);
-	}
-	else if (action == MenuAction_End)
-		delete menu;
-	return 0;
-}
-
-void SetSkinChoice(int client, const char[] id)
-{
-	char choice[32];
-	if (StrEqual(id, "none", false) || StrEqual(id, "off", false))
-		strcopy(choice, sizeof(choice), "none");
-	else if (!StrEqual(id, "default", false))
-	{
-		int idx = FindSkin(id);
-		if (idx < 0)
-		{
-			PrintToChat(client, "%s Unknown skin '%s'. Type !skin list for the ids.", PREFIX, id);
-			return;
-		}
-		strcopy(choice, sizeof(choice), g_SkinId[idx]);
-	}
-	strcopy(g_SkinChoice[client], sizeof(g_SkinChoice[]), choice);
-	g_SkinForce[client][0] = '\0';  // the player's own pick ends an admin's sm_skin_force
-	if (g_SkinCookie != null && AreClientCookiesCached(client))
-		SetClientCookie(client, g_SkinCookie, choice[0] != '\0' ? choice : "default");
-	int now = WantedSkin(client);
-	if (now < 0)
-	{
-		PrintToChat(client, "%s Stock player model.", PREFIX);
-		return;
-	}
-	char label[128], model[PLATFORM_MAX_PATH];
-	SkinLabel(now, label, sizeof(label));
-	if (!SkinLive(now))
-	{
-		PrintToChat(client, "%s You get %s from the next map on (the server has just added it).", PREFIX, g_SkinName[now]);
-		return;
-	}
-	bool fits = false;
-	if (IsPlayerAlive(client))
-	{
-		GetClientModel(client, model, sizeof(model));
-		fits = SameModel(model, g_SkinBase[now]) || SkinOfModel(model) >= 0;
-	}
-	if (fits)
-		PrintToChat(client, "%s You now look like: %s.", PREFIX, label);
-	else if (g_SkinClass[now][0] != '\0')
-		PrintToChat(client, "%s Your skin: %s. It shows while you play %s.", PREFIX, g_SkinName[now], g_SkinClass[now]);
-	else
-		PrintToChat(client, "%s Your skin: %s. It shows while your player model is %s.", PREFIX, g_SkinName[now], g_SkinBase[now]);
-}
-
-// on a listen server the host's console runs commands as the server: treat them as the host's
-int SkinCommandClient(int client)
-{
-	if (client == 0 && !IsDedicatedServer() && IsClientInGame(1) && !IsFakeClient(1))
-		client = 1;
-	if (client <= 0 || !IsClientInGame(client))
-	{
-		ReplyToCommand(client, "[Hats] This command is for players in the game.");
-		return 0;
-	}
-	if (!g_cvSkins.BoolValue || g_SkinCount == 0)
-	{
-		ReplyToCommand(client, "[Hats] This server has no player skins.");
-		return 0;
-	}
-	return client;
-}
-
-public Action Cmd_Skin(int client, int args)
-{
-	client = SkinCommandClient(client);
-	if (client == 0)
-		return Plugin_Handled;
-	if (args < 1)
-	{
-		ShowSkinMenu(client);
-		return Plugin_Handled;
-	}
-	char arg[32];
-	GetCmdArg(1, arg, sizeof(arg));
-	if (StrEqual(arg, "list", false))
-	{
-		char line[512] = "off", label[128];
-		for (int i = 0; i < g_SkinCount; i++)
-		{
-			SkinLabel(i, label, sizeof(label));
-			Format(line, sizeof(line), "%s, %s = %s", line, g_SkinId[i], label);
-		}
-		PrintToChat(client, "%s !skin <id>: %s", PREFIX, line);
-	}
-	else
-		SetSkinChoice(client, arg);
-	return Plugin_Handled;
-}
-
-public Action Cmd_Pink(int client, int args)
-{
-	client = SkinCommandClient(client);
-	if (client == 0)
-		return Plugin_Handled;
-	int pink = FindSkin("pink");
-	if (pink < 0)
-	{
-		ReplyToCommand(client, "[Hats] This server has no pink skin.");
-		return Plugin_Handled;
-	}
-	SetSkinChoice(client, WantedSkin(client) == pink ? "none" : "pink");
-	return Plugin_Handled;
-}
-
-public Action Cmd_SkinForce(int client, int args)
-{
-	if (args < 2)
-	{
-		ReplyToCommand(client, "[Hats] usage: sm_skin_force <target> <skin id | off | reset>  (reset = the player's own choice again)");
-		return Plugin_Handled;
-	}
-	char target[MAX_TARGET_LENGTH], id[32], force[32];
-	GetCmdArg(1, target, sizeof(target));
-	GetCmdArg(2, id, sizeof(id));
-	if (StrEqual(id, "off", false) || StrEqual(id, "none", false))
-		strcopy(force, sizeof(force), "none");
-	else if (!StrEqual(id, "reset", false))
-	{
-		int idx = FindSkin(id);
-		if (idx < 0)
-		{
-			ReplyToCommand(client, "[Hats] unknown skin '%s' (%d skin(s) on this server)", id, g_SkinCount);
-			return Plugin_Handled;
-		}
-		strcopy(force, sizeof(force), g_SkinId[idx]);
-	}
-	int targets[MAXPLAYERS];
-	char targetName[MAX_TARGET_LENGTH];
-	bool ml;
-	int n = ProcessTargetString(target, client, targets, sizeof(targets), 0, targetName, sizeof(targetName), ml);
-	if (n <= 0)
-	{
-		ReplyToTargetError(client, n);
-		return Plugin_Handled;
-	}
-	for (int i = 0; i < n; i++)
-		strcopy(g_SkinForce[targets[i]], sizeof(g_SkinForce[]), force);
-	ReplyToCommand(client, "[Hats] skin of %s: %s%s", targetName, force[0] != '\0' ? force : "their own choice",
-		g_cvSkins.BoolValue ? "" : " (but sm_hats_skins is 0)");
-	return Plugin_Handled;
-}
-
 public Action Cmd_PlushTune(int client, int args)
 {
 	char who[PLATFORM_MAX_PATH], what[16], a[16];
@@ -1771,8 +1235,7 @@ public Action Cmd_Reload(int client, int args)
 {
 	LoadConfig();
 	PrecacheHats();
-	RegisterSkins(false);
-	ReplyToCommand(client, "[Hats] %d hat(s) and %d skin(s) loaded.", g_HatCount, g_SkinCount);
+	ReplyToCommand(client, "[Hats] %d hat(s) loaded.", g_HatCount);
 	return Plugin_Handled;
 }
 
@@ -1876,9 +1339,6 @@ public Action Cmd_Dump(int client, int args)
 {
 	ReplyToCommand(client, "[Hats] %d hat(s); SetTransmit calls %d, hidden %d; TF2 hats refused %d, stand-ins refused %d",
 		g_HatCount, g_TransmitCalls, g_TransmitHidden, g_KindBlocked[KIND_TF2], g_KindBlocked[KIND_FALLBACK]);
-	for (int s = 0; s < g_SkinCount; s++)
-		ReplyToCommand(client, "[Hats] skin '%s': %s replaces %s, %s, precached %d", g_SkinId[s], g_SkinModel[s], g_SkinBase[s],
-			SkinLive(s) ? "live" : "not live (from the next map on)", IsModelPrecached(g_SkinModel[s]));
 	char model[PLATFORM_MAX_PATH];
 	float zero[3], p[3], a[3], f[3], probe[3], ax[3], az[3], fx[3], fz[3];
 	for (int i = 1; i <= MaxClients; i++)
@@ -1894,12 +1354,6 @@ public Action Cmd_Dump(int client, int args)
 		int plush = EntRefToEntIndex(g_PlushRef[i]);
 		if (plush > 0 || WantsPlush(i))
 			ReplyToCommand(client, "[Hats]    plush: wanted %d ent %d on %s", WantsPlush(i), plush, g_PlushOnModel[i]);
-		int wears = SkinOfModel(model);
-		int wants = WantedSkin(i);
-		if (wears >= 0 || wants >= 0 || g_SkinChoice[i][0] != '\0' || g_SkinForce[i][0] != '\0')
-			ReplyToCommand(client, "[Hats]    skin: wears %s, wants %s (choice '%s', forced '%s'%s), m_nSkin %d",
-				wears >= 0 ? g_SkinId[wears] : "-", wants >= 0 ? g_SkinId[wants] : "-", g_SkinChoice[i], g_SkinForce[i],
-				(wants >= 0 && !SkinLive(wants)) ? ", not live until the next map" : "", GetEntProp(i, Prop_Send, "m_nSkin"));
 		if (hat <= 0)
 			continue;
 		int idx = g_HatWorn[i];
