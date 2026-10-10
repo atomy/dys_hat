@@ -1,29 +1,38 @@
-# Dystopia Hats (`dys_hats`)
+# Dystopia Hats (`dys_hats`) and Pink Light Punk (`dys_girl`)
 
 <p align="center">
   <img src="screenshots/hat_cone.webp" height="280" alt="Traffic cone hat">
   <img src="screenshots/hat_melon.webp" height="280" alt="Watermelon hat">
   <img src="screenshots/plush_heavy.webp" height="280" alt="Plush backpack, side view">
   <img src="screenshots/plush_light.png" height="280" alt="Plush backpack, back view">
-  <img src="screenshots/pink_back.webp" height="280" alt="Pink Light Punk player skin, back view">
+  <img src="screenshots/pink_back.webp" height="280" alt="Pink Light Punk player model, back view">
 </p>
 
-A SourceMod plugin that gives [Dystopia](https://store.steampowered.com/app/17580/Dystopia/) players TF2-style hats,
-a plush backpack and an optional player skin, the [Pink Light Punk](#player-skins-skin-pink). Everything is opt-in:
-nobody wears a hat until they pick it with `!hat`, and nobody turns pink until they type `!pink`.
+Two SourceMod plugins for [Dystopia](https://store.steampowered.com/app/17580/Dystopia/) in one repo:
 
-The hats are Half-Life 2 props that ship with Dystopia, so players download nothing for them and `sv_pure` is not
-affected. The player skin is the exception: it is a new model that every player downloads from the server (8.8 MB,
-only if the server installs it). No admin flag is needed to pick a hat or a skin. Optional TF2 hats can be shown to
-players who copy them from their own Team Fortress 2 install (see [TF2 hats](#tf2-hats)).
+* [`dys_hats`](#dys_hats-hats-and-plush-backpack): TF2-style hats and a plush backpack (`!hat`, `!plush`).
+* [`dys_girl`](#dys_girl-pink-light-punk): the Pink Light Punk, a new player model for Punk Light, opt-in with
+  `!pink`.
+
+Both are opt-in: nobody wears a hat until they pick it with `!hat`, and nobody turns pink until they type `!pink`.
+Each plugin works without the other; hats and the plush sit on the pink model too.
+
+## dys_hats: hats and plush backpack
+
+A SourceMod plugin that gives [Dystopia](https://store.steampowered.com/app/17580/Dystopia/) players TF2-style hats
+and a plush backpack. Hats are opt-in: nobody wears one until they pick it with `!hat`.
+
+The hats are Half-Life 2 props that ship with Dystopia, so players download nothing and `sv_pure` is not affected.
+No admin flag is needed to pick a hat. Optional TF2 hats can be shown to players who copy them from their own
+Team Fortress 2 install (see [TF2 hats](#tf2-hats)).
 
 | | |
 |---|---|
-| version | 1.4.0 |
+| version | 1.3.0 |
 | needs | SourceMod 1.11+ (Metamod:Source), SDKTools, SDKHooks; clientprefs optional (remembers choices) |
 | tested on | Dystopia 1.5.8, Linux and Windows dedicated servers |
 
-## Install
+### Install
 
 Copy the files into the server's `dystopia/addons/sourcemod/`:
 
@@ -33,16 +42,15 @@ Copy the files into the server's `dystopia/addons/sourcemod/`:
 | `configs/dys_hats.cfg` | `configs/` |
 | `gamedata/sdktools.games/custom/game.dystopia.txt` | `gamedata/sdktools.games/custom/` (create `custom/`) |
 | `configs/dys_hats_tf2.cfg` | `configs/` (only if you want [TF2 hats](#tf2-hats)) |
-| `content/models`, `content/materials` | **not** here: into the server's `dystopia/` folder itself, next to `addons/` (only for the [player skin](#player-skins-skin-pink)) |
 
 Restart the server afterwards: the gamedata file is only read when SDKTools loads.
 
-Check: `sm plugins list` shows "Dystopia Hats (1.4.0)", the SourceMod log has
-`[dys_hats.smx] Read 11 hat(s), 1 skin(s) and 11 setting(s) from configs/dys_hats.cfg, 0 TF2 hat(s) ...` (26 TF2
-hats with the TF2 list; 0 skins and one `skin 'pink': model ... not found` error without `content/`), and there is no
+Check: `sm plugins list` shows "Dystopia Hats (1.3.0)", the SourceMod log has
+`[dys_hats.smx] Read 11 hat(s) and 8 setting(s) from configs/dys_hats.cfg, 0 TF2 hat(s) ...` (26 with the TF2
+list), and there is no
 `Error parsing gameconfig file` line.
 
-### Why the gamedata file (it fixes all SourceMod plugins on Dystopia)
+#### Why the gamedata file (it fixes all SourceMod plugins on Dystopia)
 
 SourceMod's `gamedata/sdktools.games/game.dystopia.txt` is from an old Dystopia build. In Dystopia 1.5.8 its offsets
 point at other functions: `AcceptEntityInput` called the slot before `CBaseEntity::AcceptInput` and `TeleportEntity`
@@ -61,7 +69,7 @@ SetTransmit 21, OnTakeDamage 63, Think 48, Touch 100, Use 98, Weapon_* ...).
 Careful: SourceMod's gamedata parser wants one key/value per line. A malformed file in `custom/` stops SDKTools from
 loading, and every plugin that needs it fails ("Required extension SDKTools not running").
 
-## Players
+### Players
 
 | chat / console | effect |
 |---|---|
@@ -74,10 +82,8 @@ loading, and every plugin that needs it fails ("Required extension SDKTools not 
 | `!hat tf2` | whether you see TF2 hats, and how to get them |
 | `!plush` (`sm_plush`, `!plush on` / `off`) | wear / take off the plush backpack |
 | `!plush show` / `!plush hide` | see your own plush (third person) / hide it from you again (default) |
-| `!skin` (`sm_skin`) | player skin menu; `!skin <id>` (e.g. `!skin pink`), `!skin off`, `!skin list` |
-| `!pink` (`sm_pink`) | switch the [Pink Light Punk](#player-skins-skin-pink) on / off |
 
-The choices are stored with clientprefs (if that extension runs), so they survive reconnects and map changes.
+The choice is stored with clientprefs (if that extension runs), so it survives reconnects and map changes.
 
 Behaviour:
 * You don't see your own hat in first person: it is not sent to you. Spectators watching you in first person don't
@@ -89,7 +95,7 @@ Behaviour:
   pick it up, and it disappears after 8 s. It does not drop while you are cloaked.
 * No collision and no hitbox: it changes nothing in the game.
 
-### Plush backpack (`!plush`)
+#### Plush backpack (`!plush`)
 
 The heavy plush from dys_fortress (`models/twincannon/plush_heavy.mdl`, ships with the game) worn on the back:
 scale 1.2 (34 u tall), from the waist to behind the head, its back against the wearer's back, its face looking
@@ -102,74 +108,11 @@ Placement per class model, from the bind pose: light and medium models carry it 
 The back surface sits 7-8 u behind the spine on light / medium Punk models, 18 u on the medium Corp (gear) and 15-17 u
 on heavies, so each model has its own offset. Tune live: `sm_plush_tune light_punk pos <x> <y> <z>`,
 `... ang <p> <y> <r>`, `... att <attachment>`, `sm_plush_tune all scale <s>` (prints the line for the `plush` block).
+The [Pink Light Punk](#dys_girl-pink-light-punk) has its own entry (`models/player/light_punk_pink.mdl`, its back
+is ~2.5 u closer to the spine; not tuned in game yet); a model without an entry gets `default`. When another plugin
+changes a player's model, hat and plush re-attach to the new one within 0.1 s.
 
-### Player skins (`!skin`, `!pink`)
-
-<p align="center">
-  <img src="screenshots/pink_face.webp" height="300" alt="Pink Light Punk: face, goggles and bracers">
-  <img src="screenshots/pink_back.webp" height="300" alt="Pink Light Punk: glowing punk emblem on the back plate">
-  <img src="screenshots/pink_side.webp" height="300" alt="Pink Light Punk crouching: ponytail, holster, knee guard">
-</p>
-
-[![Pink Light Punk in game (video)](screenshots/pink_bots_lineup.webp)](screenshots/pink_light_punk_ingame.mp4)
-
-&#9654; [in-game video](screenshots/pink_light_punk_ingame.mp4) (mp4, 5.9 MB)
-
-The Pink Light Punk is a new player model for Punk Light: a female light punk with a hot-pink ponytail (it swings),
-goggles pushed up on the forehead, pink armor plates over a black suit, and the punk emblem glowing on the back plate.
-It uses the stock light_punk skeleton, animations, attachments and hitboxes, so it plays exactly like the stock model.
-
-It is a second model next to the stock one (`models/player/light_punk_pink.mdl`), nothing in the game is replaced:
-
-* A player opts in with `!pink` (or `!skin pink`, or the `!skin` menu) and out with `!pink` / `!skin off`. The choice
-  is remembered (clientprefs). It can be picked at any time and shows only while you play **Punk + Light**: the plugin
-  switches a player whose current model is the stock `models/player/light_punk.mdl`, and never touches any other model
-  (Corps, medium / heavy, the cyberspace avatar). The stock model comes back when you switch it off.
-* The game sets the class model when a player spawns, so the skin goes back on one frame after each spawn, and a
-  0.1 s check puts it back (or takes it off) whenever the game has set the stock model again (e.g. after a jack-out).
-* Thermal vision, stealth (predator cloak) and headshots keep working: the model has the same 5 skin families as the
-  stock one and the plugin leaves `m_nSkin` to the game. It never switches a model while the player is cloaked.
-* Hats and the plush re-attach to the new model at once (same attachments). The plush has its own placement for this
-  model (the back is ~2.5 u closer to the spine): `sm_plush_tune light_punk_pink pos <x> <y> <z>` if it needs work.
-* What stays stock: the gibs (the game spawns the stock light_punk gibs) and the first-person hands (one viewmodel
-  material for everybody, it can't be per player). The death ragdoll is made from the player's model, so it is pink.
-* The hitboxes are the stock ones, bone for bone: a shot hits exactly where it would hit the stock model.
-* Bots get a skin only with `sm_hats_skins_bots 1` (then the `sm_hats_skin_default` skin) or with `sm_skin_force`.
-
-**Server install.** Copy the repo's `content/models` and `content/materials` into the server's `dystopia/` folder
-(`dystopia/models/player/light_punk_pink.*`, `dystopia/materials/models/player/light_punk_pink/`). At every map start
-the plugin puts the model, its `.vvd` / `.vtx` / `.phy` and every file in its materials folder into the download
-table and precaches it. Players then download it once when they connect: 20 files, 8.8 MB (textures 1024 / 512).
-
-* Downloads: `sv_allowdownload 1` (the plugin logs an error if it is 0 and there is no `sv_downloadurl`), or FastDL:
-  put the same files, bzip2-compressed (`light_punk_pink.mdl.bz2`, ..., 3.1 MB in total), under your `sv_downloadurl`
-  as `models/player/...` and `materials/models/player/light_punk_pink/...`.
-* `sv_pure` must stay 0, or the server's `pure_server_whitelist.txt` needs `models\player\light_punk_pink.*` and
-  `materials\models\player\light_punk_pink\...` as `allow_from_disk`, or clients reject the downloaded files.
-* Players who switched downloads off (`cl_allowdownload 0`, `cl_downloadfilter none`) see an ERROR model on pink
-  players.
-* A skin is only used once everybody could download it: if `sm_hats_skins` is turned on in the middle of a map, or
-  the plugin is loaded while players are in the game, skins start at the next map.
-* More skins: add a block to `"skins"` in `configs/dys_hats.cfg` (`name`, `class` shown to players, `model`, the
-  `base` model it replaces, its `materials` folder). A skin whose model the server doesn't have is skipped with one
-  error in the log.
-
-**Rebuilding the model** (Windows): `modelsrc/light_punk_pink/` has the QC, the reference mesh (`pink_reference.smd`)
-and the stock physics mesh and ragdoll pose it needs. `build.bat [path\to\studiomdl.exe]` (or set `STUDIOMDL`; default:
-Steam's `Source SDK Base 2013 Multiplayer\bin\studiomdl.exe`, MDL v48 like Dystopia) compiles it into
-`content/models/player/`. The VTFs in `content/materials` are built; their 2048 px painted sources and the Blender
-files are not in the repo. The VMTs are plain text (`$phong`, `$selfillum` glow mask, `$envmap`, rim light).
-
-**Credits / provenance.** Body: Blender Studio's "Human Base Meshes" asset bundle (v1.4.1, CC0), reshaped. Skeleton and bind pose, attachments, hitboxes, gloves and boots, physics model, ragdoll pose and all
-animations (`$includemodel player/light_shared.mdl`): Dystopia's light_punk. Hair, armor, goggles: modelled for this
-skin; textures painted procedurally (Python / numpy). Built with Blender, Blender Source Tools, Crowbar (decompile of
-the stock model) and the Source SDK Base 2013 `studiomdl` / `vtex`.
-
-<p align="center">
-  <img src="screenshots/pink_model_sheet.webp" width="720" alt="Pink Light Punk model sheet (Blender render): front, three-quarter, side, back">
-</p>
-
-## Settings and hat list (`configs/dys_hats.cfg`)
+### Settings and hat list (`configs/dys_hats.cfg`)
 
 The file is read at every map start and by `sm_hats_reload`. Its `settings` block wins over `server.cfg` (which may
 run before SourceMod loads its plugins). Changes made over rcon last until the next map.
@@ -186,9 +129,6 @@ run before SourceMod loads its plugins). Changes made over rcon last until the n
 | `sm_hats_debug` | 0 | log every equip / hide / drop |
 | `sm_hats_plush` | 1 | players may wear the plush backpack (`!plush`) |
 | `sm_hats_plush_bots` | 0 | 1 = bots wear it too |
-| `sm_hats_skins` | 1 | players may pick a [player skin](#player-skins-skin-pink); 0 = nobody gets one and the files stay out of the download table |
-| `sm_hats_skin_default` | `none` | skin for players who never picked one (`none` = the stock models) |
-| `sm_hats_skins_bots` | 0 | 0 = bots never get a skin, 1 = the default skin |
 
 Admin commands (flag `config`):
 
@@ -197,9 +137,8 @@ Admin commands (flag `config`):
 | `sm_hats_reload` | re-read `configs/dys_hats.cfg` |
 | `sm_hats_tune <id> pos <fwd> <left> <up>` / `ang <p> <y> <r>` / `scale <s>` | move every worn hat of that id at once; prints the line for `dys_hats.cfg` |
 | `sm_plush_tune <player model\|default\|all> ...` | the same for the plush |
-| `sm_hats_dump` | every player's hat, skin, cyberspace and camouflage state, and the SetTransmit counters |
+| `sm_hats_dump` | every player's hat, cyberspace and camouflage state, and the SetTransmit counters |
 | `sm_hats_tf2view <client> <0\|1>` | treat a client as having the TF2 hat files or not (testing) |
-| `sm_skin_force <target> <id\|off\|reset>` | give any player a skin, bots too (to see what other players see); `reset` = their own choice again. Lasts until they disconnect or pick a skin themselves |
 
 Hats (menu order = file order):
 `cone` Traffic cone, `bucket` Metal bucket, `pail` Plastic bucket, `pot` Cooking pot, `flowerpot` Flower pot,
@@ -226,7 +165,7 @@ sm_hats_tune halo scale 0.7
 server puts the `eyes` attachment 15-22 u in front of the eye position), so judge the look in the game, not from
 these numbers.
 
-## TF2 hats
+### TF2 hats
 
 26 TF2 hats (Bill's Hat, Ellis' Cap, Ghastly Gibus, Tyrant's Helm, Stainless Pot, Killer's Kabuto, Max's Severed Head,
 Officer's Ushanka, Fancy Fedora, Texas Ten Gallon, Pickelhaube, Brigade Helm, Santa Hat, ...), opt-in per player.
@@ -269,14 +208,154 @@ are 7.2-7.4. VMTs lose their `Proxies` block (TF2-only proxies such as ItemTintC
 their default paint (`$colortint_base`) baked into `$color2`. Keep `scale` at 1 for TF2 hats: their model origin is
 at the feet of the TF2 character (~78 u below the hat), so any scale moves them far off the head.
 
+## dys_girl: Pink Light Punk
+
+<p align="center">
+  <img src="screenshots/pink_face.webp" height="300" alt="Pink Light Punk: face, goggles and bracers">
+  <img src="screenshots/pink_back.webp" height="300" alt="Pink Light Punk: glowing punk emblem on the back plate">
+  <img src="screenshots/pink_side.webp" height="300" alt="Pink Light Punk crouching: ponytail, holster, knee guard">
+</p>
+
+[![Pink Light Punk in game (video)](screenshots/pink_bots_lineup.webp)](screenshots/pink_light_punk_ingame.mp4)
+
+&#9654; [in-game video](screenshots/pink_light_punk_ingame.mp4) (mp4, 5.9 MB)
+
+The Pink Light Punk is a new player model for Punk Light: a female light punk with a hot-pink ponytail (it swings),
+goggles pushed up on the forehead, pink armor plates over a black suit, and the punk emblem glowing on the back plate.
+It uses the stock light_punk skeleton, animations, attachments and hitboxes, so it plays exactly like the stock model.
+
+`dys_girl` is the SourceMod plugin that puts players into it. The model is a second one next to the stock one
+(`models/player/light_punk_pink.mdl`), nothing in the game is replaced, and nobody turns pink until they type `!pink`.
+Unlike the hats it is a new model, so every player downloads it from the server (8.8 MB, once). No admin flag is
+needed to pick it.
+
+| | |
+|---|---|
+| version | 1.0.0 |
+| needs | SourceMod 1.11+ (Metamod:Source), SDKTools with this repo's [gamedata fix](#why-the-gamedata-file-it-fixes-all-sourcemod-plugins-on-dystopia); clientprefs optional (remembers the choice) |
+| tested | the model in game on Dystopia 1.5.8; the plugin not yet on a server (see [Test status](#test-status)) |
+
+### Install
+
+| from this repo | to the server's `dystopia/` |
+|---|---|
+| `plugins/dys_girl.smx` | `addons/sourcemod/plugins/` |
+| `configs/dys_girl.cfg` | `addons/sourcemod/configs/` |
+| `gamedata/sdktools.games/custom/game.dystopia.txt` | `addons/sourcemod/gamedata/sdktools.games/custom/` (the same file as for `dys_hats`) |
+| `content/models`, `content/materials` | `models/`, `materials/` (the `dystopia/` folder itself, next to `addons/`) |
+
+The content ends up as `dystopia/models/player/light_punk_pink.*` (6 files) and
+`dystopia/materials/models/player/light_punk_pink/` (14 files). Restart the server afterwards: the gamedata file is
+only read when SDKTools loads. The plugin switches models with SDKTools' `SetEntityModel`, and SourceMod's own
+Dystopia offset for it is one slot off (25 / 26 instead of 24 / 25), so without the
+[gamedata fix](#why-the-gamedata-file-it-fixes-all-sourcemod-plugins-on-dystopia) it calls the wrong function.
+
+Check: `sm plugins list` shows "Dystopia Girl (1.0.0)", the SourceMod log has
+`[dys_girl.smx] Read 1 skin(s) and 3 setting(s) from configs/dys_girl.cfg` (without `content/`: 0 skins and one
+`skin 'pink': model ... not found` error), and there is no `Error parsing gameconfig file` line.
+
+### Players
+
+| chat / console | effect |
+|---|---|
+| `!pink` (`sm_pink`) | switch the Pink Light Punk on / off |
+| `!skin` (`sm_skin`) | menu: the stock model or one of the server's skins |
+| `!skin <id>` | that skin, e.g. `!skin pink` |
+| `!skin off` (`none`) | the stock models; `!skin default` = back to the server default |
+| `!skin list` | the ids |
+
+The choice is stored with clientprefs (cookie `dys_girl_skin`, if that extension runs), so it survives reconnects and
+map changes.
+
+Behaviour:
+* It can be picked at any time and shows only while you play **Punk + Light**: the plugin switches a player whose
+  current model is the stock `models/player/light_punk.mdl`, and never touches any other model (Corps, medium /
+  heavy, the cyberspace avatar). The stock model comes back when you switch it off.
+* The game sets the class model when a player spawns, so the skin goes back on one frame after each spawn, and a
+  0.2 s check puts it back (or takes it off) whenever the game has set the stock model again (e.g. after a jack-out).
+* Thermal vision, stealth (predator cloak) and headshots keep working: the model has the same 5 skin families as the
+  stock one and the plugin leaves `m_nSkin` to the game. It never switches a model while the player is cloaked or
+  jacked into cyberspace.
+* What stays stock: the gibs (the game spawns the stock light_punk gibs) and the first-person hands (one viewmodel
+  material for everybody, it can't be per player). The death ragdoll is made from the player's model, so it is pink.
+* The hitboxes are the stock ones, bone for bone: a shot hits exactly where it would hit the stock model.
+* With `dys_hats`: hats and the plush re-attach to the new model within 0.1 s (same attachments). `dys_hats.cfg` has
+  a plush placement for this model (the back is ~2.5 u closer to the spine):
+  `sm_plush_tune light_punk_pink pos <x> <y> <z>` if it needs work.
+* Bots get a skin only with `sm_girl_bots 1` (then the `sm_girl_default` skin) or with `sm_skin_force`.
+
+### Settings and skin list (`configs/dys_girl.cfg`)
+
+The file is read at every map start and by `sm_girl_reload`. Its `settings` block wins over `server.cfg`, as in
+`dys_hats`. Changes made over rcon last until the next map.
+
+| cvar | default | |
+|---|---|---|
+| `sm_girl_enabled` | 1 | players may pick a skin; 0 = everybody gets the stock models back (and from the next map on the files are no longer downloaded) |
+| `sm_girl_default` | `none` | skin for players who never picked one (`none` = the stock models) |
+| `sm_girl_bots` | 0 | 0 = bots never get a skin, 1 = the default skin |
+| `sm_girl_debug` | 0 | log every model switch and the download table |
+
+Admin commands (flag `config`):
+
+| command | |
+|---|---|
+| `sm_girl_reload` | re-read `configs/dys_girl.cfg` |
+| `sm_girl_dump` | every player's model, the skin they wear and the one they want (choice, `sm_skin_force`), `m_nSkin`, camouflage and cyberspace state; every skin's model, base model and whether it is live |
+| `sm_skin_force <target> <id\|off\|reset>` | give any player a skin, bots too (to see what other players see); `reset` = their own choice again. Lasts until they disconnect or pick a skin themselves |
+
+More skins: add a block to `"skins"` (`name` and `class` shown to players, the `model`, the stock `base` model it
+stands in for, its `materials` folder). A skin whose model the server doesn't have is skipped with one error in the
+log. `!pink` is the same as `!skin pink`.
+
+### Downloads, FastDL, `sv_pure`
+
+At every map start the plugin puts the model, its `.vvd` / `.vtx` / `.phy` and every file in its materials folder
+into the download table and precaches it. Players then download it once when they connect: 20 files, 8.8 MB
+(textures 1024 / 512).
+
+* Downloads: `sv_allowdownload 1` (the plugin logs an error if it is 0 and there is no `sv_downloadurl`), or FastDL:
+  put the same files, bzip2-compressed (`light_punk_pink.mdl.bz2`, ..., 3.1 MB in total), under your `sv_downloadurl`
+  as `models/player/...` and `materials/models/player/light_punk_pink/...`.
+* `sv_pure` must stay 0, or the server's `pure_server_whitelist.txt` needs `models\player\light_punk_pink.*` and
+  `materials\models\player\light_punk_pink\...` as `allow_from_disk`, or clients reject the downloaded files.
+* Players who switched downloads off (`cl_allowdownload 0`, `cl_downloadfilter none`) see an ERROR model on pink
+  players.
+* A skin is only used once everybody could download it: if `sm_girl_enabled` is turned on in the middle of a map, or
+  the plugin is loaded while players are in the game, skins start at the next map.
+
+### Rebuilding the model
+
+Windows: `modelsrc/light_punk_pink/` has the QC, the reference mesh (`pink_reference.smd`) and the stock physics mesh
+and ragdoll pose it needs. `build.bat [path\to\studiomdl.exe]` (or set `STUDIOMDL`; default: Steam's
+`Source SDK Base 2013 Multiplayer\bin\studiomdl.exe`, MDL v48 like Dystopia) compiles it into
+`content/models/player/`. The VTFs in `content/materials` are built; their 2048 px painted sources and the Blender
+files are not in the repo. The VMTs are plain text (`$phong`, `$selfillum` glow mask, `$envmap`, rim light).
+
+### Credits
+
+Body: Blender Studio's "Human Base Meshes" asset bundle (v1.4.1, CC0), reshaped. Skeleton and bind pose, attachments,
+hitboxes, gloves and boots, physics model, ragdoll pose and all animations (`$includemodel player/light_shared.mdl`):
+Dystopia's light_punk. Hair, armor, goggles: modelled for this skin; textures painted procedurally (Python / numpy).
+Built with Blender, Blender Source Tools, Crowbar (decompile of the stock model) and the Source SDK Base 2013
+`studiomdl` / `vtex`.
+
+<p align="center">
+  <img src="screenshots/pink_model_sheet.webp" width="720" alt="Pink Light Punk model sheet (Blender render): front, three-quarter, side, back">
+</p>
+
 ## Building
 
-`build.bat [path\to\spcomp.exe]` (or set `SPCOMP`) compiles `scripting/dys_hats.sp` to `plugins/dys_hats.smx` with
-SourceMod's spcomp 1.11+. It uses `scripting/include` if present, else the `include` folder next to spcomp.exe.
-On Linux: `spcomp scripting/dys_hats.sp -i<sourcemod>/scripting/include -oplugins/dys_hats.smx`.
-The player model: `modelsrc/light_punk_pink/build.bat` (see [Player skins](#player-skins-skin-pink)).
+`build.bat [path\to\spcomp.exe]` (or set `SPCOMP`) compiles `scripting/dys_hats.sp` and `scripting/dys_girl.sp` to
+`plugins/dys_hats.smx` and `plugins/dys_girl.smx` with SourceMod's spcomp 1.11+. It uses `scripting/include` if
+present, else the `include` folder next to spcomp.exe.
+On Linux: `spcomp scripting/dys_hats.sp -i<sourcemod>/scripting/include -oplugins/dys_hats.smx` (the same for
+`dys_girl`).
+The player model: `modelsrc/light_punk_pink/build.bat` (see [Rebuilding the model](#rebuilding-the-model)).
 
 ## Test status
+
+### dys_hats
 
 Tested on Dystopia 1.5.8 with SourceMod 1.11.0.6970, on a Linux and a Windows dedicated server with bots, SourceTV
 as the viewer for the SetTransmit checks:
@@ -293,14 +372,21 @@ as the viewer for the SetTransmit checks:
 | plush on all class models (`katana` / `eyes`), re-attach after `sm_plush_tune`, death drops | OK |
 | Windows `CommitSuicide` (`sm_slay`) with the corrected offset | OK |
 | SourceMod exceptions | 0 |
-| 1.4.0 compile (spcomp 1.11) | 0 errors, 0 warnings |
+
+Not tested yet (needs a real game client): how the hats look, whether owners really never see their own hat, the menu
+appearance (Dystopia has the `ShowMenu` user message, so SourceMod should use its numbered radio menus).
+
+### dys_girl
+
+| check | result |
+|---|---|
+| compile (spcomp 1.11) | 0 errors, 0 warnings |
 | Pink Light Punk model in game (swapped in for light_punk on bots: animations, ponytail, emblem glow; video above) | OK |
 | `modelsrc/` build reproduces `content/` (studiomdl 2013: same bones, attachments, hitboxes, skin families; .vvd/.vtx/.phy byte-identical) | OK |
 
-Not tested yet (needs a real game client): how the hats look, whether owners really never see their own hat, the menu
-appearance (Dystopia has the `ShowMenu` user message, so SourceMod should use its numbered radio menus). The 1.4.0 skin
-switching on a server (download, `!pink`, re-apply after spawns and jack-outs, thermal / cloak / headshot skins on the
-switched model, the plush placement on it) still needs a test with real clients.
+Not tested yet: the plugin itself on a server. The model was tested in game by swapping it in for light_punk on bots;
+the switching by `dys_girl` (download, `!pink`, re-apply after spawns and jack-outs, thermal / cloak / headshot skins
+on the switched model, the plush placement on it) still needs a test with real clients.
 
 **Windows + SourceTV:** with SourceMod 1.11 loaded, a Windows dedicated server with `tv_enable 1` exits right after
 the map activates (`DedicatedMain returned -1`). This also happens without dys_hats, and not without SourceMod; the
