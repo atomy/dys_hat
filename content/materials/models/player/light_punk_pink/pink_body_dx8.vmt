@@ -1,0 +1,9 @@
+// DX8 (dxlevel 80) fallback for pink_body: no bump/phong, plain lit base texture + self-illum.
+// (Stock uses a separate *_spec envmap-mask texture here; we have none, so the DX8 path has no reflections.)
+"VertexLitGeneric"
+{
+	"$basetexture"      "models/player/light_punk_pink/pink_body"
+	"$surfaceprop"      "metal"
+	"$model"            1
+	"$selfillum"        1
+}

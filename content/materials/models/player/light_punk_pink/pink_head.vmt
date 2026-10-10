@@ -1,0 +1,36 @@
+// Pink light_punk HEAD material (face/skin, hair cap + fringe + ponytail, hair tie, goggles + strap). Square atlas (1024).
+// Mirrors the stock head (dys_punkhead_light02.vmt: selfillum + bumped phong + masked envmap).
+//   pink_head.vtf         RGB albedo | A = self-illum mask (goggle LEDs etc., 0 elsewhere)
+//   pink_head_normal.vtf  RGB normal (Source convention) | A = phong + envmap mask (goggle lenses high, skin/hair low)
+//   pink_head_exp.vtf     R phong exponent | G albedo-tint mask | B unused | A rim-light mask
+"VertexLitGeneric"
+{
+	"$basetexture"      "models/player/light_punk_pink/pink_head"
+	"$bumpmap"          "models/player/light_punk_pink/pink_head_normal"
+	"$surfaceprop"      "metal"          // as stock
+	"$model"            1
+	"$selfillum"        1
+	"$lightwarptexture" "models\shared\lightwarp_darken"
+
+	"$envmap"           "env_cubemap"
+	"$normalmapalphaenvmapmask" 1
+	"$envmaptint"       "[0.20 0.14 0.18]"   // lower than the body: skin/hair should not mirror; only the goggle lenses (high mask) do
+
+	"$phong"            1
+	"$phongexponent"    16
+	"$phongexponenttexture" "models/player/light_punk_pink/pink_head_exp"
+	"$phongalbedotint"  1
+	// no phongwarp (see pink_body.vmt): metallic banding on skin/hair looks wrong.
+	"$phongboost"       3                 // soft skin/hair sheen; the goggle lenses (mask ~1) still get a hard glint
+	"$phongfresnelranges" "[0.4 1 1.6]"
+
+	"$rimlight"         1
+	"$rimlightexponent" 4
+	"$rimlightboost"    0.8
+	"$rimmask"          1
+
+	"vertexlitgeneric_dx8"
+	{
+		"$fallbackmaterial" "models/player/light_punk_pink/pink_head_dx8"
+	}
+}

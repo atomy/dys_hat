@@ -1,0 +1,11 @@
+# Source engine binaries: never touch line endings
+*.mdl binary
+*.vvd binary
+*.vtx binary
+*.phy binary
+*.vtf binary
+*.smx binary
+*.webp binary
+*.mp4 binary
+# content/ is served to players as is: keep every file byte-exact
+content/** -text

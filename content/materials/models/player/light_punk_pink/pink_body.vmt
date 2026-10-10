@@ -1,0 +1,54 @@
+// Pink light_punk BODY material (suit painted on the body, armor plates, belt, holsters).  Square atlas (2048 source, 1024 in the download build).
+// Same shader setup as the stock light_punk body (dys_punkbody_light02.vmt) so the lighting matches the other
+// player models; only the stock values that depend on the stock textures were re-tuned (see notes).
+//
+// Texture channels (CONTRACT.md):
+//   pink_body.vtf         RGB albedo | A = self-illum mask   (glowing emblem / LEDs, 0 everywhere else)
+//   pink_body_normal.vtf  RGB normal map (Source/DirectX convention) | A = phong + envmap mask (metal high, skin/fabric low)
+//   pink_body_exp.vtf     R phong exponent | G albedo-tint mask | B unused | A rim-light mask
+"VertexLitGeneric"
+{
+	"$basetexture"      "models/player/light_punk_pink/pink_body"
+	"$bumpmap"          "models/player/light_punk_pink/pink_body_normal"
+	"$surfaceprop"      "metal"          // as stock
+	"$model"            1
+
+	// ---- self illumination: base-texture alpha is the glow mask (the head does the same in stock) ----
+	"$selfillum"        1
+
+	// ---- diffuse lighting: the stock darkening lightwarp, so the model sits in the scene like the other players ----
+	"$lightwarptexture" "models\shared\lightwarp_darken"
+
+	// ---- environment reflection, masked by the normal map's alpha (stock: $normalmapalphaenvmapmask) ----
+	"$envmap"           "env_cubemap"
+	"$normalmapalphaenvmapmask" 1
+	// stock is a warm [0.5 0.3 0.15]; pink-white so reflections on the metal plates stay pink instead of orange.
+	// mask ~0.8 on plates -> ~0.35 reflectance; skin/fabric mask ~0.1 -> barely any.
+	"$envmaptint"       "[0.50 0.32 0.42]"
+
+	// ---- phong (specular) ----
+	"$phong"            1
+	"$phongexponent"    20                // only used if the exponent texture is missing
+	"$phongexponenttexture" "models/player/light_punk_pink/pink_body_exp"   // R = exponent (1 + 149 * R)
+	"$phongalbedotint"  1                 // exp.G = how much of the albedo colours the highlight (pink metal highlights)
+	// DECISION: no $phongwarptexture. Stock uses phongwarp_metallic3 on everything; I decoded it: it is a banded,
+	// multi-lobe metal ramp (values wander 4..252 across both axes). On bare skin and fabric that would give
+	// plastic/iridescent banding, and the single body material mixes skin, fabric and plates. The metallic feel of the
+	// plates comes from the mask (normal alpha ~high), the pink albedo-tinted spec, the envmap and a high exponent
+	// (exp.R) painted by the texture agent instead.
+	// Stock boost is 150 because the stock masks are tiny (avg 0.03); our masks are conventional 0..1
+	// (metal ~0.6-1, skin/fabric ~0.05-0.2), so the boost is ~4 (peak highlight ~0.3 on skin, ~3 on bare metal).
+	"$phongboost"       4
+	"$phongfresnelranges" "[0.4 1 2]"     // facing / mid / grazing multiplier (stock [0.5 1 3]): slightly less rim-spec
+
+	// ---- rim light: exp.A is the rim mask; subtle, helps the silhouette read in dark maps ----
+	"$rimlight"         1
+	"$rimlightexponent" 4
+	"$rimlightboost"    0.8
+	"$rimmask"          1
+
+	"vertexlitgeneric_dx8"
+	{
+		"$fallbackmaterial" "models/player/light_punk_pink/pink_body_dx8"
+	}
+}

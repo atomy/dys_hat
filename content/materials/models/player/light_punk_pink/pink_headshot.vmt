@@ -1,0 +1,9 @@
+// Headshot skin family (skin 2): same as stock dys_punkheadshot.vmt, translucent head texture.
+//   pink_headshot.vtf   RGB head albedo with the damage painted in | A = opacity (0 = head blown away)
+"VertexLitGeneric"
+{
+	"$basetexture"      "models/player/light_punk_pink/pink_headshot"
+	"$translucent"      1
+	"$model"            1
+	"$nodecal"          1
+}

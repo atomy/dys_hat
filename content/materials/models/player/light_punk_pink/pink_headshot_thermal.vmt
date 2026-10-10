@@ -1,0 +1,9 @@
+// Thermal headshot skin family (skin 3): same as stock dys_punkheadshot_thermal.vmt, on the pink head UVs.
+//   pink_headshot_thermal.vtf   RGB thermal colours | A = opacity (matches pink_headshot)
+"VertexLitGeneric"
+{
+	"$basetexture"      "models/player/light_punk_pink/pink_headshot_thermal"
+	"$translucent"      1
+	"$model"            1
+	"$nodecal"          1
+}

@@ -1,0 +1,8 @@
+// DX8 (dxlevel 80) fallback for pink_head: plain lit base texture + self-illum.
+"VertexLitGeneric"
+{
+	"$basetexture"      "models/player/light_punk_pink/pink_head"
+	"$surfaceprop"      "metal"
+	"$model"            1
+	"$selfillum"        1
+}
